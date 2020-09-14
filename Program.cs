@@ -32,6 +32,7 @@ namespace Gpu_db
             string dir="";
             List<String> fields = new List<string>();
             List<String> values = new List<string>();
+            List<String> tables = new List<string>();
             State state = State.Type;
             Type type =Type.NONE;
 
@@ -150,6 +151,12 @@ namespace Gpu_db
                         }
                         break;
                     case Type.SELECT:
+                        switch (state)
+                        {
+                            case State.Table:
+
+                                break;
+                        }
                         break;
                     default:
                         correct = false;
@@ -206,18 +213,14 @@ namespace Gpu_db
                 {
                     using (var accelerator = new ILGPU.Runtime.Cuda.CudaAccelerator(context))
                     {
-                        var myKernel = accelerator.LoadAutoGroupedKernel<Index1, ArrayView<int>, int>(EqualsKernel);
+                        var myKernel = accelerator.LoadAutoGroupedKernel <Index1, ArrayView<int>, ArrayView<int>, int>(EqualsKernel);
 
-                        // Allocate some memory
                         using (var buffer = accelerator.Allocate<int>(1024))
                         {
-                            // Launch buffer.Length many threads and pass a view to buffer
                             myKernel(buffer.Length, buffer.View, 42);
 
-                            // Wait for the kernel to finish...
                             accelerator.Synchronize();
 
-                            // Resolve data
                             var data = buffer.GetAsArray();
                         }
                     }
@@ -236,9 +239,29 @@ namespace Gpu_db
         }
 
 
-        static void EqualsKernel(Index1 index, ArrayView<int> dataView, int constant)
+        static void EqualsKernel(Index1 index, ArrayView<int> dataViewIn, ArrayView<int> dataViewOut, int constant)
         {
-            dataView[index] = index + constant;
+            if (dataViewIn[index] == constant)
+            {
+                dataViewOut[index] = dataViewIn[index];
+            }
+            else
+            {
+                dataViewOut[index] = -1;
+            }
+        }
+
+        static void VecEqualKernel(Index2 index, ArrayView<int> dataViewIn1, ArrayView<int> dataViewIn2, ArrayView<int> dataViewOut)
+        {
+            if (dataViewIn1[index.X] == dataViewIn1[index.Y])
+            {
+                dataViewOut.push_back((index.X^+index.Y)); //TODO: dynamic allocation and compression
+            }
+        }
+
+        static void JoinKernel(Index1 index, ArrayView<int> dataViewInter, ArrayView<int> dataViewAdd1, ArrayView<int> dataViewAdd2, ArrayView<int> dataViewOut)
+        {
+            //compiles vector from 2 add and intersect
         }
     }
 }
